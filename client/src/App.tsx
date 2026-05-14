@@ -78,14 +78,14 @@ function App() {
 
   // Loads all workflow requests for dashboard rendering.
   function fetchRequests() {
-    fetch("${API_BASE_URL}/requests")
+    fetch('${API_BASE_URL}/requests')
       .then((res) => res.json())
       .then((data) => setRequests(data))
       .catch((err) => console.error(err));
   }
 
   function fetchAuditLogs() {
-    fetch("${API_BASE_URL}/audit-logs")
+    fetch('${API_BASE_URL}/audit-logs')
       .then((res) => res.json())
       .then((data) => setAuditLogs(data))
       .catch((err) => console.error(err));
@@ -93,7 +93,7 @@ function App() {
 
   // Retrieves uploaded documents associated with a specific request.
   function fetchDocuments(requestId: number) {
-    fetch(`${API_BASE_URL}requests/${requestId}/documents`)
+    fetch(`${API_BASE_URL}/requests/${requestId}/documents`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -107,7 +107,7 @@ function App() {
   }
 
   function clearDatabase() {
-    fetch("${API_BASE_URL}/requests", {
+    fetch('${API_BASE_URL}/requests', {
       method: "DELETE",
     })
       .then((res) => res.json())
