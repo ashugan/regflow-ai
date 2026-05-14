@@ -107,14 +107,20 @@ function App() {
   }
 
   function clearDatabase() {
-    fetch(`${API_BASE_URL}/audit-logs`, {
+    fetch(`${API_BASE_URL}/requests`, {
       method: "DELETE",
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) {
+          throw new Error(`Clear database failed: ${res.status}`);
+        }
+        return res.json();
+      })
       .then(() => {
         setRequests([]);
         setAuditLogs([]);
         setRequestLogs([]);
+        setDocuments([]);
         setSelectedRequest(null);
       })
       .catch((err) => console.error(err));
