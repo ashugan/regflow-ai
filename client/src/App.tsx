@@ -203,7 +203,7 @@ function App() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    fetch("${API_BASE_URL}/requests", {
+    fetch('${API_BASE_URL}/requests', {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
