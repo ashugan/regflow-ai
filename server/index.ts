@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { db } from "./db.js";
+import { db, initializeDatabase } from "./db.js";
 import dotenv from "dotenv";
 dotenv.config();
 import OpenAI from "openai";
@@ -77,275 +77,269 @@ app.get("/", (req, res) => {
 });
 
 // Returns all workflow requests ordered by newest first.
-app.get("/requests", (req, res) => {
-    db.all("SELECT * FROM requests ORDER BY id DESC", [], (err, rows) => {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
+app.get("/requests", async (req, res) => {
+    try {
+        const result = await db.query(
+            "SELECT * FROM requests ORDER BY id DESC"
+        );
 
-        res.json(rows);
-    });
+        res.json(result.rows);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Creates a new workflow request, generates AI review content,
 // persists request state, and records audit history.
 app.post("/requests", async (req, res) => {
-    const { title, risk } = req.body;
+    try {
+        const { title, risk } = req.body;
 
-    const aiReview = await generateAIReview(title, risk);
-    const aiReviewJson = JSON.stringify(aiReview);
+        const aiReview = await generateAIReview(title, risk);
+        const aiReviewJson = JSON.stringify(aiReview);
 
-    db.run(
-        "INSERT INTO requests (title, status, risk, ai_review) VALUES (?, ?, ?, ?)",
-        [title, "Submitted", risk, aiReviewJson],
-        function (err) {
-            if (err) {
-                res.status(500).json({ error: err.message });
-                return;
-            }
+        const requestResult = await db.query(
+            `
+            INSERT INTO requests (title, status, risk, ai_review)
+            VALUES ($1, $2, $3, $4)
+            RETURNING *
+            `,
+            [title, "Submitted", risk, aiReviewJson]
+        );
 
-            const requestId = this.lastID;
+        const newRequest = requestResult.rows[0];
 
-            db.run(
-                "INSERT INTO audit_logs (request_id, action) VALUES (?, ?)",
-                [requestId, `Request submitted and AI review generated: ${title}`],
-                (auditErr) => {
-                    if (auditErr) {
-                        res.status(500).json({ error: auditErr.message });
-                        return;
-                    }
+        await db.query(
+            `
+            INSERT INTO audit_logs (request_id, action)
+            VALUES ($1, $2)
+            `,
+            [
+                newRequest.id,
+                `Request submitted and AI review generated: ${title}`,
+            ]
+        );
 
-                    res.status(201).json({
-                        id: requestId,
-                        title,
-                        status: "Submitted",
-                        risk,
-                        ai_review: aiReviewJson,
-                    });
-                }
-            );
-        }
-    );
+        res.status(201).json(newRequest);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Returns global audit history across all workflow requests.
-app.get("/audit-logs", (req, res) => {
-    db.all("SELECT * FROM audit_logs ORDER BY timestamp DESC", [], (err, rows) => {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
+app.get("/audit-logs", async (req, res) => {
+    try {
+        const result = await db.query(
+            "SELECT * FROM audit_logs ORDER BY timestamp DESC"
+        );
 
-        res.json(rows);
-    });
-});
-
-app.post("/ai-review", (req, res) => {
-    const { title, risk } = req.body;
-
-    const review = generateAIReview(title, risk);
-
-    res.json(review);
+        res.json(result.rows);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Updates workflow status and records status transition events
 // for compliance/audit visibility.
-app.patch("/requests/:id/status", (req, res) => {
-    const requestId = req.params.id;
-    const { status } = req.body;
+app.patch("/requests/:id/status", async (req, res) => {
+    try {
+        const requestId = req.params.id;
+        const { status } = req.body;
 
-    db.run(
-        "UPDATE requests SET status = ? WHERE id = ?",
-        [status, requestId],
-        function (err) {
-            if (err) {
-                res.status(500).json({ error: err.message });
-                return;
-            }
+        await db.query(
+            `
+            UPDATE requests
+            SET status = $1
+            WHERE id = $2
+            `,
+            [status, requestId]
+        );
 
-            db.run(
-                "INSERT INTO audit_logs (request_id, action) VALUES (?, ?)",
-                [requestId, `Status updated to: ${status}`],
-                (auditErr) => {
-                    if (auditErr) {
-                        res.status(500).json({ error: auditErr.message });
-                        return;
-                    }
+        await db.query(
+            `
+            INSERT INTO audit_logs (request_id, action)
+            VALUES ($1, $2)
+            `,
+            [requestId, `Status updated to: ${status}`]
+        );
 
-                    res.json({
-                        id: Number(requestId),
-                        status,
-                    });
-                }
-            );
-        }
-    );
+        res.json({
+            id: Number(requestId),
+            status,
+        });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Returns request-specific activity history for workflow traceability.
-app.get("/requests/:id/audit-logs", (req, res) => {
-    const requestId = req.params.id;
+app.get("/requests/:id/audit-logs", async (req, res) => {
+    try {
+        const requestId = req.params.id;
 
-    db.all(
-        "SELECT * FROM audit_logs WHERE request_id = ? ORDER BY timestamp DESC",
-        [requestId],
-        (err, rows) => {
-            if (err) {
-                res.status(500).json({ error: err.message });
-                return;
-            }
+        const result = await db.query(
+            `
+            SELECT * FROM audit_logs
+            WHERE request_id = $1
+            ORDER BY timestamp DESC
+            `,
+            [requestId]
+        );
 
-            res.json(rows);
-        }
-    );
+        res.json(result.rows);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Administrative utility endpoint used during development/testing
 // to clear workflow and audit data.
-app.delete("/requests", (req, res) => {
-    db.run("DELETE FROM requests", [], (err) => {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
+app.delete("/requests", async (req, res) => {
+    try {
+        await db.query("DELETE FROM documents");
+        await db.query("DELETE FROM audit_logs");
+        await db.query("DELETE FROM requests");
 
-        db.run("DELETE FROM audit_logs", [], (auditErr) => {
-            if (auditErr) {
-                res.status(500).json({ error: auditErr.message });
-                return;
-            }
-
-            res.json({
-                message: "All requests and audit logs deleted",
-            });
+        res.json({
+            message: "All requests and audit logs deleted",
         });
-    });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Uploads supporting documentation and associates it with a workflow request.
-app.post("/requests/:id/documents", upload.single("document"), (req, res) => {
-    const requestId = req.params.id;
+app.post(
+    "/requests/:id/documents",
+    upload.single("document"),
+    async (req, res) => {
+        try {
+            const requestId = req.params.id;
 
-    if (!req.file) {
-        res.status(400).json({ error: "No file uploaded" });
-        return;
-    }
-
-    db.run(
-        `
-      INSERT INTO documents (request_id, filename, original_name, mime_type)
-      VALUES (?, ?, ?, ?)
-    `,
-        [requestId, req.file.filename, req.file.originalname, req.file.mimetype],
-        function (err) {
-            if (err) {
-                res.status(500).json({ error: err.message });
+            if (!req.file) {
+                res.status(400).json({
+                    error: "No file uploaded",
+                });
                 return;
             }
 
-            db.run(
-                "INSERT INTO audit_logs (request_id, action) VALUES (?, ?)",
-                [requestId, `Document uploaded: ${req.file?.originalname}`]
+            const result = await db.query(
+                `
+                INSERT INTO documents
+                (request_id, filename, original_name, mime_type)
+                VALUES ($1, $2, $3, $4)
+                RETURNING *
+                `,
+                [
+                    requestId,
+                    req.file.filename,
+                    req.file.originalname,
+                    req.file.mimetype,
+                ]
             );
 
-            res.status(201).json({
-                id: this.lastID,
-                request_id: Number(requestId),
-                filename: req.file?.filename,
-                original_name: req.file?.originalname,
-                mime_type: req.file?.mimetype,
-            });
+            await db.query(
+                `
+                INSERT INTO audit_logs (request_id, action)
+                VALUES ($1, $2)
+                `,
+                [
+                    requestId,
+                    `Document uploaded: ${req.file.originalname}`,
+                ]
+            );
+
+            res.status(201).json(result.rows[0]);
+        } catch (err: any) {
+            res.status(500).json({ error: err.message });
         }
-    );
-});
-
-app.get("/requests/:id/documents", (req, res) => {
-    const requestId = req.params.id;
-
-    db.all(
-        "SELECT * FROM documents WHERE request_id = ? ORDER BY uploaded_at DESC",
-        [requestId],
-        (err, rows) => {
-            if (err) {
-                res.status(500).json({ error: err.message });
-                return;
-            }
-
-            res.json(rows);
-        }
-    );
-});
+    }
+);
 
 // Streams uploaded documents back to the client for download access.
-app.get("/documents/:id/download", (req, res) => {
-    const documentId = req.params.id;
+app.get("/documents/:id/download", async (req, res) => {
+    try {
+        const documentId = req.params.id;
 
-    db.get(
-        "SELECT * FROM documents WHERE id = ?",
-        [documentId],
-        (err, row: any) => {
-            if (err) {
-                res.status(500).json({ error: err.message });
-                return;
-            }
+        const result = await db.query(
+            `
+            SELECT * FROM documents
+            WHERE id = $1
+            `,
+            [documentId]
+        );
 
-            if (!row) {
-                res.status(404).json({ error: "Document not found" });
-                return;
-            }
+        const row = result.rows[0];
 
-            res.download(`uploads/${row.filename}`, row.original_name);
+        if (!row) {
+            res.status(404).json({
+                error: "Document not found",
+            });
+            return;
         }
-    );
+
+        res.download(
+            `uploads/${row.filename}`,
+            row.original_name
+        );
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 // Deletes document metadata and records deletion activity in audit history.
-app.delete("/documents/:id", (req, res) => {
-    const documentId = req.params.id;
+app.delete("/documents/:id", async (req, res) => {
+    try {
+        const documentId = req.params.id;
 
-    db.get(
-        "SELECT * FROM documents WHERE id = ?",
-        [documentId],
-        (err, row: any) => {
-            if (err) {
-                res.status(500).json({ error: err.message });
-                return;
-            }
+        const documentResult = await db.query(
+            `
+            SELECT * FROM documents
+            WHERE id = $1
+            `,
+            [documentId]
+        );
 
-            if (!row) {
-                res.status(404).json({ error: "Document not found" });
-                return;
-            }
+        const document = documentResult.rows[0];
 
-            db.run(
-                "DELETE FROM documents WHERE id = ?",
-                [documentId],
-                (deleteErr) => {
-                    if (deleteErr) {
-                        res.status(500).json({ error: deleteErr.message });
-                        return;
-                    }
-
-                    db.run(
-                        "INSERT INTO audit_logs (request_id, action) VALUES (?, ?)",
-                        [
-                            row.request_id,
-                            `Document deleted: ${row.original_name}`,
-                        ]
-                    );
-
-                    res.json({
-                        message: "Document deleted",
-                    });
-                }
-            );
+        if (!document) {
+            res.status(404).json({
+                error: "Document not found",
+            });
+            return;
         }
-    );
+
+        await db.query(
+            `
+            DELETE FROM documents
+            WHERE id = $1
+            `,
+            [documentId]
+        );
+
+        await db.query(
+            `
+            INSERT INTO audit_logs (request_id, action)
+            VALUES ($1, $2)
+            `,
+            [
+                document.request_id,
+                `Document deleted: ${document.original_name}`,
+            ]
+        );
+
+        res.json({
+            message: "Document deleted",
+        });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+initializeDatabase().then(() => {
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
 });

@@ -1,53 +1,45 @@
-import sqlite3 from "sqlite3";
+import pg from "pg";
 
-const sqlite = sqlite3.verbose();
+const { Pool } = pg;
 
-export const db = new sqlite.Database("./regflow.db", (err) => {
-  if (err) {
-    console.error("Database connection failed", err);
-  } else {
-    console.log("Connected to SQLite database");
-  }
+export const db = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl:
+    process.env.NODE_ENV === "production"
+      ? { rejectUnauthorized: false }
+      : false,
 });
 
-db.serialize(() => {
-  db.run(`
-  CREATE TABLE IF NOT EXISTS requests (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    title TEXT NOT NULL,
-    status TEXT NOT NULL,
-    risk TEXT NOT NULL,
-    ai_review TEXT
-  )
-`);
+export async function initializeDatabase() {
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS requests (
+      id SERIAL PRIMARY KEY,
+      title TEXT NOT NULL,
+      status TEXT NOT NULL,
+      risk TEXT NOT NULL,
+      ai_review TEXT
+    );
+  `);
 
-db.run(`
-  CREATE TABLE IF NOT EXISTS documents (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    request_id INTEGER NOT NULL,
-    filename TEXT NOT NULL,
-    original_name TEXT NOT NULL,
-    mime_type TEXT,
-    uploaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`);
-
-db.run(`
-  ALTER TABLE requests
-  ADD COLUMN ai_review TEXT
-`, (err) => {
-  if (err) {
-    console.log("ai_review column may already exist");
-  }
-});
-
-  db.run(`
+  await db.query(`
     CREATE TABLE IF NOT EXISTS audit_logs (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      id SERIAL PRIMARY KEY,
       request_id INTEGER,
       action TEXT NOT NULL,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
+      timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
   `);
-  
-});
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS documents (
+      id SERIAL PRIMARY KEY,
+      request_id INTEGER NOT NULL,
+      filename TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      mime_type TEXT,
+      uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  console.log("Connected to PostgreSQL database");
+}
