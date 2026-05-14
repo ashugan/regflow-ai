@@ -287,6 +287,25 @@ app.get("/documents/:id/download", async (req, res) => {
     }
 });
 
+app.get("/requests/:id/documents", async (req, res) => {
+    try {
+        const requestId = req.params.id;
+
+        const result = await db.query(
+            `
+      SELECT * FROM documents
+      WHERE request_id = $1
+      ORDER BY uploaded_at DESC
+      `,
+            [requestId]
+        );
+
+        res.json(result.rows);
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Deletes document metadata and records deletion activity in audit history.
 app.delete("/documents/:id", async (req, res) => {
     try {
