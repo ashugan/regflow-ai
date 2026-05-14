@@ -5,6 +5,7 @@ import AIReviewPanel from "./components/AIReviewPanel";
 import RequestDetails from "./components/RequestDetails";
 import AuditLogs from "./components/AuditLogs";
 import AdminControls from "./components/AdminControls";
+const API_BASE_URL = "https://regflow-ai.onrender.com";
 
 // Core request entity representing a regulatory workflow item.
 // AI reviews are persisted as serialized JSON returned from backend services.
@@ -77,14 +78,14 @@ function App() {
 
   // Loads all workflow requests for dashboard rendering.
   function fetchRequests() {
-    fetch("http://localhost:3001/requests")
+    fetch("${API_BASE_URL}/requests")
       .then((res) => res.json())
       .then((data) => setRequests(data))
       .catch((err) => console.error(err));
   }
 
   function fetchAuditLogs() {
-    fetch("http://localhost:3001/audit-logs")
+    fetch("${API_BASE_URL}/audit-logs")
       .then((res) => res.json())
       .then((data) => setAuditLogs(data))
       .catch((err) => console.error(err));
@@ -92,7 +93,7 @@ function App() {
 
   // Retrieves uploaded documents associated with a specific request.
   function fetchDocuments(requestId: number) {
-    fetch(`http://localhost:3001/requests/${requestId}/documents`)
+    fetch(`${API_BASE_URL}requests/${requestId}/documents`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -106,7 +107,7 @@ function App() {
   }
 
   function clearDatabase() {
-    fetch("http://localhost:3001/requests", {
+    fetch("${API_BASE_URL}/requests", {
       method: "DELETE",
     })
       .then((res) => res.json())
@@ -120,7 +121,7 @@ function App() {
   }
 
   function fetchRequestLogs(requestId: number) {
-    fetch(`http://localhost:3001/requests/${requestId}/audit-logs`)
+    fetch(`${API_BASE_URL}/requests/${requestId}/audit-logs`)
       .then((res) => res.json())
       .then((data) => setRequestLogs(data))
       .catch((err) => console.error(err));
@@ -135,7 +136,7 @@ function App() {
     const formData = new FormData();
     formData.append("document", selectedFile);
 
-    fetch(`http://localhost:3001/requests/${selectedRequest.id}/documents`, {
+    fetch(`${API_BASE_URL}/requests/${selectedRequest.id}/documents`, {
       method: "POST",
       body: formData,
     })
@@ -153,7 +154,7 @@ function App() {
   }
 
   function deleteDocument(documentId: number) {
-    fetch(`http://localhost:3001/documents/${documentId}`, {
+    fetch(`${API_BASE_URL}/documents/${documentId}`, {
       method: "DELETE",
     })
       .then((res) => res.json())
@@ -169,7 +170,7 @@ function App() {
 
   // Updates workflow status and synchronizes audit/activity state.
   function updateStatus(requestId: number, newStatus: string) {
-    fetch(`http://localhost:3001/requests/${requestId}/status`, {
+    fetch(`${API_BASE_URL}/requests/${requestId}/status`, {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json",
@@ -202,7 +203,7 @@ function App() {
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
-    fetch("http://localhost:3001/requests", {
+    fetch("${API_BASE_URL}/requests", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
