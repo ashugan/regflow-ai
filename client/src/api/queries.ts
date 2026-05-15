@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RequestItem, AuditLog } from "../types";
 
-const API_BASE_URL = "http://localhost:3000";
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
 
 export function useRequests() {
   return useQuery({
