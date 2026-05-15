@@ -4,6 +4,7 @@ import {
   useRequestDocuments,
   useUploadDocument,
   useDeleteDocument,
+  useUpdateRequestStatus,
 } from "../api/queries";
 
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000";
@@ -33,6 +34,7 @@ function RequestModal({
   const documentsQuery = useRequestDocuments(request?.id ?? null);
   const uploadMutation = useUploadDocument();
   const deleteDocumentMutation = useDeleteDocument();
+  const updateStatusMutation = useUpdateRequestStatus();
 
   function handleUpload() {
     if (!selectedFile || !request) return;
@@ -93,6 +95,31 @@ function RequestModal({
                 {request.risk}
               </span>
             </p>
+          </div>
+
+          {/* Status Actions */}
+          <div className="flex gap-3 flex-wrap">
+            <button
+              onClick={() => updateStatusMutation.mutate({ requestId: request.id, status: "In Review" })}
+              disabled={updateStatusMutation.isPending}
+              className="bg-yellow-600 hover:bg-yellow-500 transition px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+            >
+              Mark In Review
+            </button>
+            <button
+              onClick={() => updateStatusMutation.mutate({ requestId: request.id, status: "Approved" })}
+              disabled={updateStatusMutation.isPending}
+              className="bg-green-600 hover:bg-green-500 transition px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+            >
+              Approve
+            </button>
+            <button
+              onClick={() => updateStatusMutation.mutate({ requestId: request.id, status: "Rejected" })}
+              disabled={updateStatusMutation.isPending}
+              className="bg-red-600 hover:bg-red-500 transition px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+            >
+              Reject
+            </button>
           </div>
 
           {/* AI Review */}
