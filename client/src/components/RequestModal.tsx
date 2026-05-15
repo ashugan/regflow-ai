@@ -1,5 +1,12 @@
 import { useState } from "react";
 import type { RequestItem, AIReview, AuditLog } from "../types";
+import {
+  useRequestDocuments,
+  useUploadDocument,
+  useDeleteDocument,
+} from "../api/queries";
+
+const API_BASE_URL = "http://localhost:3000";
 
 type RequestModalProps = {
   request: RequestItem | null;
@@ -21,6 +28,19 @@ function RequestModal({
   deleteError,
 }: RequestModalProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  const documentsQuery = useRequestDocuments(request?.id ?? null);
+  const uploadMutation = useUploadDocument();
+  const deleteDocumentMutation = useDeleteDocument();
+
+  function handleUpload() {
+    if (!selectedFile || !request) return;
+    uploadMutation.mutate(
+      { requestId: request.id, file: selectedFile },
+      { onSuccess: () => setSelectedFile(null) }
+    );
+  }
 
   if (!request) return null;
 
@@ -146,6 +166,83 @@ function RequestModal({
                     <p className="text-slate-500 text-xs mt-1">
                       {new Date(log.timestamp).toLocaleString()}
                     </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Documents */}
+          <div className="border-t border-slate-800 pt-6">
+            <h3 className="text-lg font-semibold mb-4">Documents</h3>
+
+            <div className="flex items-center gap-4 mb-4">
+              <label className="bg-slate-800 hover:bg-slate-700 transition px-4 py-2 rounded-lg cursor-pointer text-sm">
+                Select File
+                <input
+                  type="file"
+                  onChange={(e) =>
+                    setSelectedFile(e.target.files ? e.target.files[0] : null)
+                  }
+                  className="hidden"
+                  disabled={uploadMutation.isPending}
+                />
+              </label>
+
+              {selectedFile && (
+                <span className="text-slate-300 text-sm">{selectedFile.name}</span>
+              )}
+
+              <button
+                onClick={handleUpload}
+                disabled={!selectedFile || uploadMutation.isPending}
+                className="bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {uploadMutation.isPending ? "Uploading..." : "Upload"}
+              </button>
+            </div>
+
+            {uploadMutation.error && (
+              <p className="text-red-400 text-sm mb-3">
+                {uploadMutation.error.message}
+              </p>
+            )}
+
+            {deleteDocumentMutation.error && (
+              <p className="text-red-400 text-sm mb-3">
+                {deleteDocumentMutation.error.message}
+              </p>
+            )}
+
+            {documentsQuery.isLoading ? (
+              <p className="text-slate-400 text-sm">Loading documents...</p>
+            ) : documentsQuery.data?.length === 0 ? (
+              <p className="text-slate-400 text-sm">No documents</p>
+            ) : (
+              <div className="space-y-3">
+                {documentsQuery.data?.map((doc) => (
+                  <div key={doc.id} className="bg-slate-800 rounded-lg p-4">
+                    <p className="font-medium text-sm">{doc.original_name}</p>
+                    <p className="text-slate-400 text-xs mt-1">{doc.mime_type}</p>
+                    <div className="flex gap-3 mt-3">
+                      <a
+                        href={`${API_BASE_URL}/documents/${doc.id}/download`}
+                        className="bg-slate-700 hover:bg-slate-600 transition px-4 py-2 rounded-lg text-sm"
+                      >
+                        Download
+                      </a>
+                      <button
+                        onClick={() =>
+                          deleteDocumentMutation.mutate({
+                            documentId: doc.id,
+                            requestId: request.id,
+                          })
+                        }
+                        className="bg-red-700 hover:bg-red-600 transition px-4 py-2 rounded-lg text-sm"
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
