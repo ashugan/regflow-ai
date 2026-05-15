@@ -1,18 +1,26 @@
+import { useState } from "react";
+
 type SubmitRequestFormProps = {
-  title: string;
-  risk: string;
-  setTitle: (title: string) => void;
-  setRisk: (risk: string) => void;
-  handleSubmit: (e: React.FormEvent) => void;
+  onSubmit: (data: { title: string; risk: string }) => void;
+  isPending: boolean;
+  error: string;
 };
 
 function SubmitRequestForm({
-  title,
-  risk,
-  setTitle,
-  setRisk,
-  handleSubmit,
+  onSubmit,
+  isPending,
+  error,
 }: SubmitRequestFormProps) {
+  const [title, setTitle] = useState("");
+  const [risk, setRisk] = useState("Low");
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    onSubmit({ title, risk });
+    setTitle("");
+    setRisk("Low");
+  }
+
   return (
     <section className="bg-slate-900 border border-slate-800 rounded-2xl p-6 mb-8">
       <h2 className="text-2xl font-semibold mb-6">
@@ -28,13 +36,15 @@ function SubmitRequestForm({
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Request title"
           required
-          className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 flex-1 outline-none focus:border-blue-500"
+          disabled={isPending}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 flex-1 outline-none focus:border-blue-500 disabled:opacity-50"
         />
 
         <select
           value={risk}
           onChange={(e) => setRisk(e.target.value)}
-          className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3"
+          disabled={isPending}
+          className="bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 disabled:opacity-50"
         >
           <option>Low</option>
           <option>Medium</option>
@@ -43,11 +53,14 @@ function SubmitRequestForm({
 
         <button
           type="submit"
-          className="bg-blue-600 hover:bg-blue-500 transition rounded-lg px-6 py-3 font-medium"
+          disabled={isPending}
+          className="bg-blue-600 hover:bg-blue-500 transition rounded-lg px-6 py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Submit
+          {isPending ? "Submitting..." : "Submit"}
         </button>
       </form>
+
+      {error && <p className="text-red-400 mt-3 text-sm">{error}</p>}
     </section>
   );
 }

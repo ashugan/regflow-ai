@@ -17,8 +17,15 @@ export async function initializeDatabase() {
       title TEXT NOT NULL,
       status TEXT NOT NULL,
       risk TEXT NOT NULL,
-      ai_review TEXT
+      ai_review TEXT,
+      deleted_at TIMESTAMP
     );
+  `);
+
+  // Add deleted_at column if it doesn't exist (for existing tables)
+  await db.query(`
+    ALTER TABLE requests
+    ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP;
   `);
 
   await db.query(`

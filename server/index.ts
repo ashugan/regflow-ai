@@ -80,7 +80,7 @@ app.get("/", (req, res) => {
 app.get("/requests", async (req, res) => {
     try {
         const result = await db.query(
-            "SELECT * FROM requests ORDER BY id DESC"
+            "SELECT * FROM requests WHERE deleted_at IS NULL ORDER BY id DESC"
         );
 
         res.json(result.rows);
@@ -203,6 +203,38 @@ app.delete("/requests", async (req, res) => {
         res.json({
             message: "All requests and audit logs deleted",
         });
+    } catch (err: any) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete("/requests/:id", async (req, res) => {
+    try {
+        const requestId = req.params.id;
+
+        const requestResult = await db.query(
+            "SELECT * FROM requests WHERE id = $1",
+            [requestId]
+        );
+
+        const request = requestResult.rows[0];
+
+        if (!request) {
+            res.status(404).json({ error: "Request not found" });
+            return;
+        }
+
+        await db.query(
+            "UPDATE requests SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1",
+            [requestId]
+        );
+
+        await db.query(
+            "INSERT INTO audit_logs (request_id, action) VALUES ($1, $2)",
+            [requestId, "Request deleted"]
+        );
+
+        res.json({ message: "Request deleted successfully" });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
     }

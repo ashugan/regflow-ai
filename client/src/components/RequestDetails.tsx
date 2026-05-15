@@ -1,24 +1,4 @@
-type RequestItem = {
-    id: number;
-    title: string;
-    status: string;
-    risk: string;
-};
-
-type AuditLog = {
-    id: number;
-    request_id: number;
-    action: string;
-    timestamp: string;
-};
-
-type DocumentItem = {
-    id: number;
-    request_id: number;
-    filename: string;
-    original_name: string;
-    mime_type: string;
-};
+import type { RequestItem, AuditLog, DocumentItem } from "../types";
 
 type RequestDetailsProps = {
     selectedRequest: RequestItem | null;
@@ -26,13 +6,15 @@ type RequestDetailsProps = {
     documents: DocumentItem[];
     selectedFile: File | null;
     isUploading: boolean;
-
+    isLoadingDocs: boolean;
+    isLoadingLogs: boolean;
     setSelectedFile: (file: File | null) => void;
-
     onClose: () => void;
     onUpdateStatus: (requestId: number, status: string) => void;
     onUploadDocument: () => void;
     onDeleteDocument: (documentId: number) => void;
+    uploadError?: string;
+    deleteError?: string;
 };
 
 function RequestDetails({
@@ -41,11 +23,15 @@ function RequestDetails({
     documents,
     selectedFile,
     isUploading,
+    isLoadingDocs,
+    isLoadingLogs,
     setSelectedFile,
     onClose,
     onUpdateStatus,
     onUploadDocument,
     onDeleteDocument,
+    uploadError,
+    deleteError,
 }: RequestDetailsProps) {
     if (!selectedRequest) return null;
 
@@ -103,20 +89,28 @@ function RequestDetails({
                     Activity Timeline
                 </h3>
 
-                <div className="space-y-3">
-                    {requestLogs.map((log) => (
-                        <div
-                            key={log.id}
-                            className="bg-slate-800 rounded-lg p-4"
-                        >
-                            <p>{log.action}</p>
+                {isLoadingLogs ? (
+                    <div className="text-slate-400 text-sm">Loading activity...</div>
+                ) : (
+                    <div className="space-y-3">
+                        {requestLogs.length === 0 ? (
+                            <p className="text-slate-400 text-sm">No activity yet</p>
+                        ) : (
+                            requestLogs.map((log) => (
+                                <div
+                                    key={log.id}
+                                    className="bg-slate-800 rounded-lg p-4"
+                                >
+                                    <p>{log.action}</p>
 
-                            <p className="text-slate-400 text-sm mt-1">
-                                {log.timestamp}
-                            </p>
-                        </div>
-                    ))}
-                </div>
+                                    <p className="text-slate-400 text-sm mt-1">
+                                        {log.timestamp}
+                                    </p>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
             </div>
 
             <div className="pt-6">
@@ -136,6 +130,7 @@ function RequestDetails({
                                 )
                             }
                             className="hidden"
+                            disabled={isUploading}
                         />
                     </label>
 
@@ -147,50 +142,61 @@ function RequestDetails({
 
                     <button
                         onClick={onUploadDocument}
-                        className="bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-lg"
+                        disabled={!selectedFile || isUploading}
+                        className="bg-blue-600 hover:bg-blue-500 transition px-4 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        Upload
+                        {isUploading ? "Uploading..." : "Upload"}
                     </button>
                 </div>
 
-                {isUploading && (
-                    <div className="mt-3 h-2 w-full bg-slate-700 rounded-full overflow-hidden">
-                        <div className="h-full w-2/3 bg-blue-500 rounded-full animate-pulse"></div>
-                    </div>
+                {uploadError && (
+                    <p className="text-red-400 text-sm mb-3">{uploadError}</p>
                 )}
 
-                <div className="space-y-3">
-                    {documents.map((doc) => (
-                        <div
-                            key={doc.id}
-                            className="bg-slate-800 rounded-lg p-4"
-                        >
-                            <p className="font-medium">
-                                {doc.original_name}
-                            </p>
+                {deleteError && (
+                    <p className="text-red-400 text-sm mb-3">{deleteError}</p>
+                )}
 
-                            <p className="text-slate-400 text-sm">
-                                {doc.mime_type}
-                            </p>
-
-                            <div className="flex gap-3 mt-3">
-                                <a
-                                    href={`https://regflow-ai.onrender.com/documents/${doc.id}/download`}
-                                    className="bg-slate-700 hover:bg-slate-600 transition px-4 py-2 rounded-lg text-sm"
+                {isLoadingDocs ? (
+                    <div className="text-slate-400 text-sm">Loading documents...</div>
+                ) : (
+                    <div className="space-y-3">
+                        {documents.length === 0 ? (
+                            <p className="text-slate-400 text-sm">No documents</p>
+                        ) : (
+                            documents.map((doc) => (
+                                <div
+                                    key={doc.id}
+                                    className="bg-slate-800 rounded-lg p-4"
                                 >
-                                    Download
-                                </a>
+                                    <p className="font-medium">
+                                        {doc.original_name}
+                                    </p>
 
-                                <button
-                                    onClick={() => onDeleteDocument(doc.id)}
-                                    className="bg-red-700 hover:bg-red-600 transition px-4 py-2 rounded-lg text-sm"
-                                >
-                                    Delete
-                                </button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                                    <p className="text-slate-400 text-sm">
+                                        {doc.mime_type}
+                                    </p>
+
+                                    <div className="flex gap-3 mt-3">
+                                        <a
+                                            href={`https://regflow-ai.onrender.com/documents/${doc.id}/download`}
+                                            className="bg-slate-700 hover:bg-slate-600 transition px-4 py-2 rounded-lg text-sm"
+                                        >
+                                            Download
+                                        </a>
+
+                                        <button
+                                            onClick={() => onDeleteDocument(doc.id)}
+                                            className="bg-red-700 hover:bg-red-600 transition px-4 py-2 rounded-lg text-sm"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                )}
             </div>
         </section>
     );

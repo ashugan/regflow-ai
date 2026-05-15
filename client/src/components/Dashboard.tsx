@@ -1,17 +1,46 @@
-type RequestItem = {
-  id: number;
-  title: string;
-  status: string;
-  risk: string;
-  ai_review?: string;
-};
+import type { RequestItem } from "../types";
 
 type DashboardProps = {
   requests: RequestItem[];
+  isLoading: boolean;
+  error?: string;
   onViewDetails: (request: RequestItem) => void;
 };
 
-function Dashboard({ requests, onViewDetails }: DashboardProps) {
+function Dashboard({ requests, isLoading, error, onViewDetails }: DashboardProps) {
+  if (isLoading) {
+    return (
+      <section className="mb-8">
+        <h2 className="text-3xl font-semibold mb-6">
+          Dashboard
+        </h2>
+        <div className="text-slate-400">Loading requests...</div>
+      </section>
+    );
+  }
+
+  if (error) {
+    return (
+      <section className="mb-8">
+        <h2 className="text-3xl font-semibold mb-6">
+          Dashboard
+        </h2>
+        <div className="text-red-400">Error: {error}</div>
+      </section>
+    );
+  }
+
+  if (requests.length === 0) {
+    return (
+      <section className="mb-8">
+        <h2 className="text-3xl font-semibold mb-6">
+          Dashboard
+        </h2>
+        <div className="text-slate-400">No requests yet</div>
+      </section>
+    );
+  }
+
   return (
     <section className="mb-8">
       <h2 className="text-3xl font-semibold mb-6">
